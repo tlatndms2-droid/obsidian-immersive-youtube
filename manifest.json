@@ -1,0 +1,9 @@
+{
+  "id": "immersive-youtube",
+  "name": "Immersive YouTube Bridge",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "description": "기본 웹뷰어의 YouTube 자막을 Immersive Translate로 번역하고 공식 설정에서 번역 서비스를 선택합니다.",
+  "author": "tlatn",
+  "isDesktopOnly": true
+}

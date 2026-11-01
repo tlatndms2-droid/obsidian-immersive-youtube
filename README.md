@@ -1,0 +1,59 @@
+# Immersive YouTube Bridge
+
+Obsidian 기본 **웹 뷰어**에서 YouTube 자막을 Immersive Translate로 번역하는 데스크톱 플러그인입니다. 공식 Immersive Translate 설정에서 선택한 번역 서비스와 자막 옵션을 사용합니다.
+
+이 저장소는 독립적인 연결 플러그인입니다. Immersive Translate의 공식 제품 또는 공식 Obsidian 플러그인이 아닙니다. Immersive Translate 원본은 이 저장소·릴리즈에 포함하지 않으며, 처음 사용할 때 공식 배포 주소에서 검증한 사용자 스크립트 1.34.4를 내려받습니다. 검증한 파일과 다른 파일은 실행하지 않습니다.
+
+## 설치
+
+1. 데스크톱 Obsidian에서 코어 플러그인 **웹 뷰어**를 켭니다.
+2. BRAT의 **Add beta plugin**에 `tlatndms2-droid/obsidian-immersive-youtube`를 입력해 설치합니다.
+3. 커뮤니티 플러그인에서 **Immersive YouTube Bridge**를 켭니다.
+4. 플러그인 설정에서 **준비 완료**를 확인합니다. 최초 준비에는 인터넷 연결이 필요합니다.
+
+수동 설치는 Release의 ZIP을 풀어 `main.js`, `manifest.json`, `styles.css`를 보관함의 `.obsidian/plugins/immersive-youtube/` 폴더에 넣은 뒤 플러그인을 켭니다.
+
+## 사용 방법
+
+- 기본 웹 뷰어에서 자막이 있는 YouTube 영상을 엽니다. 기본 대상 언어는 한국어입니다.
+- **설정 → Immersive YouTube Bridge → 공식 설정 열기**를 누릅니다.
+- 공식 설정의 **비디오 자막 → Immersive Translate 비디오 자막 번역 서비스**에서 원하는 서비스를 고릅니다.
+- 이미 열려 있는 YouTube 페이지는 새로고침합니다.
+- 유료 AI를 사용하려면 공식 설정에서 본인 Immersive Translate 계정으로 로그인하고 이용 가능한 서비스를 선택해야 합니다. 이 플러그인은 구독이나 API 키를 제공하지 않습니다.
+
+Chrome 확장 프로그램의 설정을 직접 읽거나 자동으로 공유하지 않습니다. Obsidian 안의 공식 설정과 YouTube 페이지가 같은 설정을 사용하도록 연결합니다. Google 번역으로 선택을 강제하지 않습니다.
+
+## 설정과 저장
+
+- **YouTube 한국어 자막 자동 번역**: 새 페이지의 자동 실행을 켜거나 끕니다. 변경 뒤 기존 YouTube 페이지는 새로고침하세요.
+- **공식 설정 열기**: Immersive Translate가 제공하는 설정 화면을 기본 웹 뷰어에 엽니다.
+- **공식 스크립트 다시 받기**: 검증한 동일 버전을 다시 받습니다. 실패하면 기존 정상 파일을 보존합니다.
+
+자동 실행 여부는 플러그인의 `data.json`에 저장합니다. Immersive Translate의 설정과 로그인 정보는 보관함 파일 대신 Obsidian의 로컬 브라우저 프로필 저장소에 저장합니다. YouTube 자막과 번역 요청은 선택한 번역 서비스로 전송되며, 공식 스크립트가 수행하는 통신에는 Immersive Translate의 정책과 설정이 적용됩니다. 공식 스크립트는 플러그인 폴더의 `vendor/`에 보관합니다.
+
+## 확인한 범위와 제한
+
+- Obsidian 1.14.5의 분리된 Sandbox에서 Google·Microsoft의 실제 한국어 자막 번역을 확인했습니다.
+- 공식 설정 변경, 저장, 새로고침, 영상 이동, 여러 탭, 배속·탐색, 앱 재시작 후 설정 유지를 확인했습니다.
+- 유료 AI의 실제 번역과 계정 로그인 완료 과정은 검증하지 않았습니다. 서비스 목록이 보이는 것만으로 모든 AI의 사용 가능성을 보장하지 않습니다.
+- 자막 없는 영상의 음성을 인식해 새 자막을 만드는 기능과 라이브 방송 번역은 지원 범위에 포함하지 않습니다.
+- HTML 전체화면 전환 요청이 Sandbox에서 완료되지 않았습니다. 플러그인을 꺼도 재현된 기본 웹 뷰어의 제약이며, 전체화면의 자막 표시는 미검증입니다.
+- PC에서만 동작합니다. 모바일, Canvas의 웹 카드, Media Extended 플레이어는 대상이 아닙니다.
+- 공식 서비스의 변경·접속 제한으로 번역이 실패할 수 있습니다. 사용자 지정 API의 임의 서버 주소는 자동 허용하지 않습니다.
+
+## 개발
+
+Node.js 24와 pnpm으로 개발했습니다.
+
+```sh
+pnpm install --frozen-lockfile
+pnpm run check
+pnpm run test
+pnpm run build
+```
+
+일부 통합 테스트는 검증한 공식 스크립트 파일 경로를 `IMT_TEST_SCRIPT` 환경변수로 지정해야 실행됩니다. 파일은 SHA-256으로 확인하며 저장소에 포함하지 않습니다.
+
+## 라이선스
+
+이 저장소에서 작성한 연결 코드에는 MIT 라이선스를 적용합니다. Immersive Translate 및 외부 번역 서비스에는 각 제공자의 별도 조건이 적용됩니다.
