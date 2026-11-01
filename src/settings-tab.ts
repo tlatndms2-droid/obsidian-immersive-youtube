@@ -25,8 +25,8 @@ export class BridgeSettingsTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
     new Setting(containerEl)
-      .setName("YouTube 한국어 자막 자동 번역")
-      .setDesc("기본 웹뷰어에서 YouTube를 열면 Immersive Translate에서 선택한 번역 서비스로 자막을 표시합니다. 설정을 바꾼 뒤 이미 열린 YouTube 페이지는 새로고침해 주세요.")
+      .setName("웹페이지 및 지원 영상 자막 번역")
+      .setDesc("기본 웹뷰어의 일반 웹페이지와 삽입된 영상에도 Immersive Translate를 연결합니다. 영상 지원 여부와 자막 번역 방식은 공식 스크립트 및 설정을 따릅니다. 설정을 바꾼 뒤 이미 열린 페이지는 새로고침해 주세요.")
       .addToggle(toggle => toggle.setValue(this.owner.settings.autoTranslate).onChange(async enabled => {
         toggle.setDisabled(true);
         try { await this.owner.setAutoTranslate(enabled); }
@@ -35,7 +35,7 @@ export class BridgeSettingsTab extends PluginSettingTab {
       }));
     new Setting(containerEl)
       .setName("Immersive Translate 공식 설정")
-      .setDesc("공식 설정 화면에서 로그인하고, 비디오 자막에 사용할 번역 서비스와 AI를 선택합니다. Chrome 확장 설정과는 별도로 저장됩니다.")
+      .setDesc("공식 설정 화면에서 로그인하고, 웹페이지와 비디오 자막에 사용할 번역 서비스와 AI를 선택합니다. Chrome 확장 설정과는 별도로 저장됩니다.")
       .addButton(button => button.setButtonText("공식 설정 열기").onClick(() => {
         void this.owner.openOfficialSettings().catch(() => new Notice("공식 설정 화면을 열지 못했습니다."));
       }));

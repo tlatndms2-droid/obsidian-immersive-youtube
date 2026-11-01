@@ -4,7 +4,7 @@ import vm from "node:vm";
 import { readFile } from "node:fs/promises";
 import { environmentSource } from "../src/userscript-environment.ts";
 import { allowedUrl, parseRequest } from "../src/translation-transport.ts";
-import { isYouTubePage, WebviewBridge } from "../src/webview-bridge.ts";
+import { isYouTubePage, isBridgePage, WebviewBridge } from "../src/webview-bridge.ts";
 
 function page(storage = {}) {
   const events = new Map();
@@ -53,7 +53,30 @@ test("GM requests deliver JSON replies once, and cancellation clears pending cal
   assert.equal(p.events.size, 0);
 });
 
-test("host transport rejects non-YouTube pages and requests outside the verified service endpoints", () => {
+test("YouTube embed settings use the official button with modern controls without changing shared rules or normal watch pages", () => {
+  const rules = { rules: [{ id: 'youtube-subtitle', 'subtitleRule.add': { quickButtonRule: {
+    appendSelector: '.ytp-chrome-controls', insertBeforeSelector: '.ytp-right-controls'
+  } } }] };
+  for (const url of ['https://www.youtube-nocookie.com/embed/example', 'https://www.youtube.com/embed/example', 'https://www.youtube.com/watch?v=example', 'https://example.com/embed/example']) {
+    const p = page(); p.context.location.href = url;
+    p.run(environmentSource('test:', '1.34.4', { buildinConfig: rules }));
+    const button = JSON.parse(p.run(`JSON.stringify(GM_getValue('buildinConfig').rules[0]['subtitleRule.add'].quickButtonRule)`));
+    assert.equal(button.appendSelector.includes('.player-controls-bottom-right'), url.includes('/embed/') && url.includes('youtube'));
+    assert.equal(p.run(`GM_getValue('buildinConfig').rules[0]['subtitleRule.add'].quickButtonRule.appendSelector`), button.appendSelector);
+    p.run(`GM_setValue('buildinConfig',${JSON.stringify(rules)})`);
+    assert.equal(p.messages.some(m => JSON.parse(m.slice(5)).key === 'buildinConfig'), false);
+    assert.equal(rules.rules[0]['subtitleRule.add'].quickButtonRule.appendSelector, '.ytp-chrome-controls');
+    p.run('__immersiveYouTubeBridge.dispose()');
+  }
+});
+
+test("web documents are supported while local/app documents and arbitrary transport endpoints stay blocked", () => {
+  for (const url of ["https://example.com/article", "http://example.com/", "https://developer.mozilla.org/en-US/docs/Web/JavaScript"]) {
+    assert.equal(isBridgePage(url), true);
+  }
+  for (const url of ["file:///C:/private.md", "obsidian://open", "about:blank", "data:text/html,hello", "javascript:alert(1)", "https://user:password@example.com/", "invalid"]) {
+    assert.equal(isBridgePage(url), false);
+  }
   for (const url of ["https://youtube.com.evil.test/", "https://example.com/?youtube.com", "http://www.youtube.com/", "https://user@www.youtube.com/"]) {
     assert.equal(isYouTubePage(url), false);
   }

@@ -3,7 +3,7 @@ import { isBridgePage, type WebviewTarget } from "./webview-bridge.ts";
 export type Connection = { start(): Promise<void>; dispose(): Promise<void> };
 export type CreateConnection = (target: WebviewTarget) => Connection;
 
-/** One document per webview. YouTube's own SPA navigation stays in that document. */
+/** One document per webview. Same-document navigation keeps the existing official script. */
 class TargetSession {
   private connection: Connection | undefined;
   private generation = 0;
@@ -24,8 +24,8 @@ class TargetSession {
     this.listen("dom-ready", () => { void this.connect(); });
     this.listen("did-navigate-in-page", event => {
       if (event.isMainFrame === false) return;
-      // The official script handles video changes. Re-injecting would duplicate it.
-      if (!this.isYouTube()) this.invalidate();
+      // The official script handles same-document content changes. Re-injecting would duplicate it.
+      if (!this.isSupportedPage()) this.invalidate();
       else void this.connect();
     });
     this.listen("render-process-gone", () => this.invalidate());
@@ -39,14 +39,14 @@ class TargetSession {
     this.target.addEventListener(type, callback);
   }
 
-  private isYouTube(): boolean {
+  private isSupportedPage(): boolean {
     try { return isBridgePage(this.target.getURL()); } catch { return false; }
   }
 
   private async probeExistingDocument(): Promise<void> {
     const generation = this.generation;
     try {
-      if (!this.isYouTube()) return;
+      if (!this.isSupportedPage()) return;
       const ready = await this.target.executeJavaScript("document.readyState");
       if (!this.stopped && generation === this.generation && (ready === "interactive" || ready === "complete")) {
         await this.connect();
@@ -55,7 +55,7 @@ class TargetSession {
   }
 
   private async connect(): Promise<void> {
-    if (this.stopped || this.connection || !this.isYouTube()) return;
+    if (this.stopped || this.connection || !this.isSupportedPage()) return;
     const generation = this.generation;
     const connection = this.create(this.target);
     this.connection = connection;

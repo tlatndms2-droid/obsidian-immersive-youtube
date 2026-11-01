@@ -63,6 +63,24 @@ test("full reload cancels the old connection and starts one connection in the ne
   s.manager.stop();
 });
 
+test("ordinary article pages connect once across SPA changes and reconnect after a reload", async () => {
+  const s = setup(), target = new Target();
+  target.url = "https://developer.mozilla.org/en-US/docs/Web/JavaScript";
+  s.manager.synchronizeTargets([target]);
+  await tick();
+  target.url += "#reference";
+  target.emit("did-navigate-in-page", { isMainFrame: true });
+  target.emit("dom-ready");
+  await tick();
+  assert.equal(s.connections.length, 1);
+  target.emit("did-start-navigation", { isMainFrame: true });
+  target.emit("dom-ready");
+  await tick();
+  assert.equal(s.connections.length, 2);
+  assert.equal(s.connections[0].disposed, true);
+  s.manager.stop();
+});
+
 test("navigation while readiness or injection is pending cannot resurrect an old connection", async () => {
   const s = setup(), target = new Target(), ready = deferred(), start = deferred();
   target.readiness = ready.promise;
@@ -84,9 +102,9 @@ test("navigation while readiness or injection is pending cannot resurrect an old
   s.manager.stop();
 });
 
-test("tabs are independent; closing one and navigating another off YouTube clean their connections", async () => {
+test("tabs are independent; closing one and navigating another to a local document clean their connections", async () => {
   const s = setup(), first = new Target(), second = new Target(), other = new Target();
-  other.url = "https://example.com/?youtube.com";
+  other.url = "file:///C:/not-a-webpage.html";
   s.manager.synchronizeTargets([first, second, other]);
   await tick();
   assert.equal(s.connections.length, 2);
@@ -95,7 +113,7 @@ test("tabs are independent; closing one and navigating another off YouTube clean
   assert.equal(first.handlers.size, 0);
   assert.equal(s.connections[1].disposed, false);
   second.emit("did-start-navigation", { isMainFrame: true });
-  second.url = "https://example.com/";
+  second.url = "obsidian://open?vault=example";
   second.emit("dom-ready");
   other.emit("did-start-navigation", { isMainFrame: true });
   other.url = "https://www.youtube.com/watch?v=third";

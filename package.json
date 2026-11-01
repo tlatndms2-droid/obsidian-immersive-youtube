@@ -1,8 +1,8 @@
 {
   "name": "obsidian-immersive-youtube",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
-  "description": "Obsidian 웹뷰어의 YouTube 자막을 위한 Immersive Translate 연결 플러그인",
+  "description": "Obsidian 웹뷰어의 웹페이지 본문과 지원 영상 자막을 위한 Immersive Translate 연결 플러그인",
   "scripts": {
     "build": "node esbuild.config.mjs",
     "check": "tsc --noEmit",

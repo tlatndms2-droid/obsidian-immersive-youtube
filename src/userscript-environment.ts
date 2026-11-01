@@ -1,6 +1,6 @@
 type EnvironmentOptions = { channel: string; version: string; values?: Record<string, unknown> };
 
-// Self-contained: serialized into the YouTube page, without Node or vault access.
+// Self-contained: serialized into the web page, without Node or vault access.
 export function installUserscriptEnvironment(options: EnvironmentOptions): void {
   const page = globalThis as any;
   const storagePrefix = "immersive-youtube-gm:";
@@ -14,8 +14,31 @@ export function installUserscriptEnvironment(options: EnvironmentOptions): void 
     if (!key.startsWith(storagePrefix)) continue;
     try { values[key.slice(storagePrefix.length)] = JSON.parse(localStorage.getItem(key)!); } catch { /* invalid legacy value */ }
   }
+  const getStoredValue = (key: string, fallback?: unknown) =>
+    Object.prototype.hasOwnProperty.call(values, key) && values[key] !== undefined ? JSON.parse(JSON.stringify(values[key])) : fallback;
   const getValue = (key: string, fallback?: unknown) => {
-    return Object.prototype.hasOwnProperty.call(values, key) && values[key] !== undefined ? JSON.parse(JSON.stringify(values[key])) : fallback;
+    const value = getStoredValue(key, fallback);
+    // The pinned script expects the old desktop embed controls. YouTube also
+    // serves embeds with the new player-controls-bottom-right layout. Extend
+    // the official button's mount selectors in this document's read-only copy.
+    // Never persist these compatibility selectors into the user's shared config.
+    if (key === "buildinConfig" && value && typeof value === "object") {
+      try {
+        const url = new URL(location.href);
+        if (["www.youtube.com", "www.youtube-nocookie.com"].includes(url.hostname) && url.pathname.startsWith("/embed/")) {
+          for (const rule of Array.isArray(value.rules) ? value.rules : []) {
+            if (!["youtube", "youtube-subtitle"].includes(rule.id)) continue;
+            const subtitle = rule["subtitleRule.add"] || rule.subtitleRule;
+            const quick = subtitle?.quickButtonRule;
+            if (!quick?.appendSelector) continue;
+            quick.appendSelector += ", .player-controls-bottom-right";
+            quick.insertBeforeSelector = [quick.insertBeforeSelector, ".ytwPlayerBottomControlsFullscreenButtonWrapper"].filter(Boolean).join(", ");
+            quick.injectedGlobalCSS = (quick.injectedGlobalCSS || "") + ".player-controls-bottom-right .immersive-translate-quick-button-container {display:inline-flex;align-items:center;height:40px;position:relative;font-size:12px;margin-right:8px;}";
+          }
+        }
+      } catch { /* Non-browser test environments and malformed config need no adaptation. */ }
+    }
+    return value;
   };
   const notify = (key: string, before: unknown, after: unknown, remote = false) => {
     for (const listener of listeners.values()) {
@@ -25,7 +48,7 @@ export function installUserscriptEnvironment(options: EnvironmentOptions): void 
     }
   };
   const setValue = (key: string, value: unknown) => {
-    const before = getValue(key);
+    const before = getStoredValue(key);
     if (JSON.stringify(before) === JSON.stringify(value)) return;
     values[key] = value;
     if (!options.values) localStorage.setItem(storagePrefix + key, JSON.stringify(value));

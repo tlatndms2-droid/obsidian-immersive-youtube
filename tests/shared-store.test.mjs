@@ -37,7 +37,7 @@ test("page initialization preserves the user's AI choice and isolated reads cann
   vm.runInContext(`__immersiveYouTubeBridge.dispose()`, context);
 });
 
-test("the shared environment attaches only to exact official settings and account routes", () => {
+test("official settings actions recognize only exact official settings and account routes", () => {
   assert.equal(isOfficialSettingsPage("https://dash.immersivetranslate.com/#subtitle"), true);
   assert.equal(isBridgePage("https://immersivetranslate.com/accounts/login?from=plugin"), true);
   assert.equal(isOfficialSettingsPage("https://dash.immersivetranslate.com.evil.test/"), false);

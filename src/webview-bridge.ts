@@ -13,7 +13,13 @@ export function isOfficialSettingsPage(value: string): boolean {
        (url.hostname === "immersivetranslate.com" && (url.pathname.startsWith("/accounts/") || url.pathname === "/profile/")));
   } catch { return false; }
 }
-export function isBridgePage(value: string): boolean { return isYouTubePage(value) || isOfficialSettingsPage(value); }
+/** Only ordinary web documents in core webviewer leaves; never local or app pages. */
+export function isBridgePage(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return ["https:", "http:"].includes(url.protocol) && !!url.hostname && !url.username && !url.password;
+  } catch { return false; }
+}
 
 export type WebviewTarget = {
   getURL(): string;
@@ -48,12 +54,12 @@ export class WebviewBridge {
     this.openTab = openTab;
   }
 
-  private isYouTube(): boolean {
+  private isSupportedPage(): boolean {
     try { return isBridgePage(this.target.getURL()); } catch { return false; }
   }
 
   private readonly onConsole = (event: { message?: string }) => {
-    if (this.stopped || !this.isYouTube() || !event.message?.startsWith(this.channel)) return;
+    if (this.stopped || !this.isSupportedPage() || !event.message?.startsWith(this.channel)) return;
     let value: any;
     try { value = JSON.parse(event.message.slice(this.channel.length)); } catch { return; }
     if (value?.action === "open-tab") {
@@ -86,14 +92,14 @@ export class WebviewBridge {
   };
 
   private async reply(id: number, result: object): Promise<void> {
-    if (this.stopped || !this.isYouTube()) return;
+    if (this.stopped || !this.isSupportedPage()) return;
     const code = `(()=>{const b=globalThis.__immersiveYouTubeBridge;if(b?.channel===${JSON.stringify(this.channel)})b.reply(${id},${JSON.stringify(result)})})()`;
     await this.target.executeJavaScript(code).catch(() => { /* page may have closed */ });
   }
 
   async start(script: Uint8Array): Promise<void> {
     if (this.started || this.stopped) throw new Error("이미 실행했거나 종료된 연결입니다.");
-    if (!this.isYouTube()) throw new Error("YouTube 웹뷰어에서만 실행할 수 있습니다.");
+    if (!this.isSupportedPage()) throw new Error("일반 웹페이지의 웹뷰어에서만 실행할 수 있습니다.");
     verifyScript(script);
     this.started = true;
     this.target.addEventListener("console-message", this.onConsole);
@@ -102,9 +108,9 @@ export class WebviewBridge {
         const legacy = await this.target.executeJavaScript(`(()=>{const out=Object.create(null);for(const key of Object.keys(localStorage)){if(key.startsWith('immersive-youtube-gm:')){try{out[key.slice(21)]=JSON.parse(localStorage.getItem(key))}catch{}}}return out})()`);
         if (legacy && typeof legacy === "object" && !Array.isArray(legacy)) this.store.seed(legacy as Record<string, unknown>);
       }
-      if (this.stopped || !this.isYouTube()) return;
+      if (this.stopped || !this.isSupportedPage()) return;
       this.unsubscribe = this.store?.subscribe(change => {
-        if (change.source === this.channel || this.stopped || !this.isYouTube()) return;
+        if (change.source === this.channel || this.stopped || !this.isSupportedPage()) return;
         void this.target.executeJavaScript(`(()=>{const b=globalThis.__immersiveYouTubeBridge;if(b?.channel===${JSON.stringify(this.channel)})b.updateStorage(${JSON.stringify(change.key)},${JSON.stringify(change.value) ?? "undefined"},${change.deleted})})()`).catch(() => {});
       });
       // One execution prevents a reload between environment setup and script injection.
@@ -119,7 +125,7 @@ export class WebviewBridge {
     this.target.removeEventListener("console-message", this.onConsole);
     for (const controller of this.active.values()) controller.abort();
     this.active.clear();
-    if (this.started && this.isYouTube()) {
+    if (this.started && this.isSupportedPage()) {
       await this.target.executeJavaScript(`(()=>{const b=globalThis.__immersiveYouTubeBridge;if(b?.channel===${JSON.stringify(this.channel)})b.dispose()})()`).catch(() => {});
     }
   }

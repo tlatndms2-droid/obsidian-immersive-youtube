@@ -8,7 +8,8 @@ import { normalizeSettings, type BridgeSettings, type PreparationState } from ".
 import { BridgeSettingsTab } from "./settings-tab.ts";
 import { createHash } from "node:crypto";
 import { SharedUserscriptStore } from "./shared-userscript-store.ts";
-import { isOfficialSettingsPage, OFFICIAL_SETTINGS_URL } from "./webview-bridge.ts";
+import { isOfficialSettingsPage, isYouTubePage, OFFICIAL_SETTINGS_URL, type WebviewTarget } from "./webview-bridge.ts";
+import { EmbeddedFrames } from "./embedded-frames.ts";
 
 export default class ImmersiveYouTubeBridge extends Plugin {
   settings: BridgeSettings = normalizeSettings(undefined);
@@ -116,11 +117,38 @@ export default class ImmersiveYouTubeBridge extends Plugin {
     if (!this.autostart) {
       const script = this.script;
       this.autostart = new WebviewAutoStart(target => {
-        const bridge = new WebviewBridge(target, undefined, this.sharedStore, url => { void this.openOfficialSettings(url); });
-        return { start: () => bridge.start(script), dispose: () => bridge.dispose() };
+        // Ordinary websites must not be able to read the GM account/API settings.
+        // Electron's isolated world shares the DOM, but not JavaScript globals.
+        const isolatedTarget: WebviewTarget = {
+          getURL: () => target.getURL(),
+          addEventListener: (type, listener) => target.addEventListener(type, listener),
+          removeEventListener: (type, listener) => target.removeEventListener(type, listener),
+          executeJavaScript: code => {
+            if (isYouTubePage(target.getURL()) || isOfficialSettingsPage(target.getURL())) return target.executeJavaScript(code);
+            const contents = require("electron").remote.webContents.fromId((target as any).getWebContentsId());
+            return contents.executeJavaScriptInIsolatedWorld(1001, [{ code }]);
+          }
+        };
+        const bridge = new WebviewBridge(isolatedTarget, undefined, this.sharedStore, url => { void this.openOfficialSettings(url); });
+        let frames: EmbeddedFrames | undefined;
+        let disposed = false;
+        return {
+          start: async () => {
+            await bridge.start(script);
+            if (disposed) return;
+            const contents = require("electron").remote.webContents.fromId((target as any).getWebContentsId());
+            frames = new EmbeddedFrames(contents.debugger, target, frameTarget => {
+              const frameBridge = new WebviewBridge(frameTarget, undefined, this.sharedStore, url => { void this.openOfficialSettings(url); });
+              return { start: () => frameBridge.start(script), dispose: () => frameBridge.dispose() };
+            }, error => console.error("[Immersive YouTube Bridge] 영상 프레임 연결", error));
+            try { await frames.start(); }
+            catch (error) { await frames.dispose(); console.error("[Immersive YouTube Bridge] 영상 프레임 연결", error); }
+          },
+          dispose: async () => { disposed = true; await frames?.dispose(); await bridge.dispose(); }
+        };
       }, error => {
         console.error("[Immersive YouTube Bridge] 자동 연결 실패", error);
-        if (!this.stopped) new Notice("YouTube 자막 자동 연결에 실패했습니다. 페이지를 새로고침해 주세요.");
+        if (!this.stopped) new Notice("웹페이지 번역 연결에 실패했습니다. 페이지를 새로고침해 주세요.");
       });
     }
     this.autostart.synchronize(this.app.workspace.getLeavesOfType("webviewer")
